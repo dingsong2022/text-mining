@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>내 영어 글 분석기</title>
+<style>
+  :root{--primary:#2F5597;--accent:#16324F;--bg:#D9EAF7;--body:#333;--card:#fff;--line:#cdd9ea;
+    --lex:#00827E;--syn:#5E35B1;--coh:#C2691C;--bar:#7C6FE0;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Noto Serif KR","Batang",serif;color:var(--body);background:var(--bg);padding:18px;}
+  .wrap{max-width:1100px;margin:0 auto;}
+  h1{font-size:24px;color:var(--accent);margin:0 0 2px;}
+  .sub{color:#5a6b80;margin:0 0 12px;font-size:14px;}
+  .guard{background:#FFF6E9;border:1px solid #E6B873;border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:16px;color:#8a5a14;}
+  .guard b{color:#C2691C;}
+  .tabs{display:flex;gap:8px;margin-bottom:14px;}
+  .tab{padding:8px 16px;border:1px solid var(--line);background:#fff;border-radius:20px;cursor:pointer;font-size:14px;font-family:inherit;color:var(--body);}
+  .tab.on{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .panel{display:none;}.panel.on{display:block;}
+  textarea{width:100%;min-height:110px;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;font-family:inherit;resize:vertical;}
+  .lbl{font-size:13px;color:var(--primary);font-weight:bold;margin:8px 0 4px;}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .btn{margin-top:12px;padding:11px 22px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:15px;cursor:pointer;font-family:inherit;}
+  .btn:hover{background:#26477f;}
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:16px 0;}
+  .c{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 8px;text-align:center;}
+  .c .k{font-size:12px;color:#5a6b80;margin-bottom:5px;}.c .v{font-size:22px;font-weight:bold;color:var(--primary);}
+  .c .d{font-size:12px;margin-top:3px;font-weight:bold;}.up{color:var(--lex);}.down{color:var(--coh);}
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0;}
+  .sec h3{margin:0 0 4px;font-size:16px;}
+  .sec .axis{font-size:12px;color:#fff;border-radius:10px;padding:2px 10px;display:inline-block;margin-bottom:10px;}
+  .ax-lex{background:var(--lex);}.ax-syn{background:var(--syn);}.ax-coh{background:var(--coh);}
+  .grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;}
+  @media(max-width:760px){.cards{grid-template-columns:repeat(2,1fr)}.grid2,.two{grid-template-columns:1fr}}
+  .stat{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f4;font-size:14px;}
+  .stat b{color:var(--primary);}
+  .bar{display:flex;align-items:center;margin:4px 0;font-size:13px;}
+  .bar .w{width:110px;flex:none;text-align:right;padding-right:8px;}
+  .bar .t{height:16px;background:var(--bar);border-radius:4px;}.bar .n{padding-left:7px;color:#5a6b80;}
+  .toggle{font-size:13px;margin-bottom:8px;}
+  .chip{display:inline-block;background:#EEF4FB;border:1px solid var(--line);border-radius:14px;padding:3px 10px;margin:3px;font-size:13px;}
+  .hint{font-size:12px;color:#8a97a8;margin-top:8px;}
+  .approx{font-size:11px;color:#b07a2a;background:#FBF1E2;border-radius:6px;padding:1px 7px;margin-left:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 내 영어 글 분석기</h1>
+  <p class="sub">내가 쓴 영어 글을 어휘·문장(통사)·연결(응집성) 세 가지로 들여다봅니다.</p>
+  <div class="guard">이 화면은 <b>계산만</b> 합니다. “무엇을 잘했는지, 무엇을 고칠지”는 알려주지 않아요. <b>데이터를 보고 무슨 뜻인지 정하는 건 여러분의 몫</b>입니다.</div>
+  <div class="tabs">
+    <button class="tab on" data-tab="single">내 글 분석</button>
+    <button class="tab" data-tab="compare">처음 ↔ 최근 비교</button>
+  </div>
+  <div class="panel on" id="single">
+    <div class="lbl">내 영어 글</div>
+    <textarea id="t1" placeholder="여기에 내 영어 글을 붙여넣으세요."></textarea>
+    <button class="btn" onclick="runSingle()">분석하기</button>
+    <div id="out1"></div>
+    <div class="sec" style="margin-top:14px">
+      <h3>🔎 용례 보기 — 한 단어가 쓰인 문장 모두 펼치기</h3>
+      <span class="axis ax-syn">쓰임의 질</span>
+      <div style="margin:6px 0 4px">
+        <input id="concWord" placeholder="단어 입력 (예: I, good, happy)"
+          style="padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;width:240px">
+        <button class="btn" style="margin-top:0;padding:8px 16px" onclick="showConc()">문장 모으기</button>
+      </div>
+      <div id="concOut"></div>
+    </div>
+  </div>
+  <div class="panel" id="compare">
+    <div class="two">
+      <div><div class="lbl">A — 처음에 쓴 글</div><textarea id="tA" placeholder="학기 초에 쓴 글"></textarea></div>
+      <div><div class="lbl">B — 최근에 쓴 글</div><textarea id="tB" placeholder="최근에 쓴 글"></textarea></div>
+    </div>
+    <button class="btn" onclick="runCompare()">비교하기</button>
+    <div id="out2"></div>
+  </div>
+</div>
+<script>
+const STOP=new Set("a an the and or but to of in on at for with as by from i you we he she it they them me my our your his her their its is am are was were be been being do does did have has had will would shall can could may might must should this that these those then so not no nor also very just only even more most much many some any all both there here what which who whom whose when where why how than too about into onto over under up down out off again further once if because while during before after above below between".split(" "));
+const CONN=["and","but","or","so","yet","because","although","though","while","when","if","unless","since","after","before","until","however","therefore","also","then","first","finally","moreover","besides"];
+const norm=s=>s.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[];
+function sentObjs(t){const m=t.match(/[^.!?]+[.!?]+/g);if(m)return m.map(s=>({raw:s.trim(),end:s.trim().slice(-1)}));return t.trim()?[{raw:t.trim(),end:"."}]:[];}
+function analyze(text){
+  const w=norm(text),st=sentObjs(text),total=w.length,distinct=new Set(w).size;
+  const f={};for(const x of w)f[x]=(f[x]||0)+1;
+  const E=Object.entries(f).sort((a,b)=>b[1]-a[1]);
+  const hapax=E.filter(([,n])=>n===1).length;
+  const top5=total?+((E.slice(0,5).reduce((s,[,n])=>s+n,0))/total*100).toFixed(1):0;
+  const avgLen=total?+(w.reduce((s,x)=>s+x.length,0)/total).toFixed(1):0;
+  const longR=total?+(w.filter(x=>x.length>=7).length/total*100).toFixed(1):0;
+  const lens=st.map(s=>norm(s.raw).length);
+  const firsts={};let iS=0;
+  st.forEach(s=>{const fw=norm(s.raw)[0];if(fw){firsts[fw]=(firsts[fw]||0)+1;if(fw==="i")iS++;}});
+  const firstTop=Object.entries(firsts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const types={".":0,"?":0,"!":0};st.forEach(s=>{if(types[s.end]!==undefined)types[s.end]++;});
+  const low=" "+text.toLowerCase()+" ";const cf={};let cT=0;
+  CONN.forEach(c=>{const re=new RegExp("\\b"+c+"\\b","g");const n=(low.match(re)||[]).length;if(n){cf[c]=n;cT+=n;}});
+  return{sentences:st.length,total,distinct,ttr:total?+(distinct/total*100).toFixed(1):0,mls:st.length?+(total/st.length).toFixed(2):0,
+    all:E,content:E.filter(([k])=>!STOP.has(k)),hapax,hapaxR:distinct?+(hapax/distinct*100).toFixed(1):0,top5,avgLen,longR,
+    minL:lens.length?Math.min(...lens):0,maxL:lens.length?Math.max(...lens):0,firstTop,iS,iSR:st.length?+(iS/st.length*100).toFixed(1):0,
+    types,cT,cN:Object.keys(cf).length,cf};
+}
+const card=(k,v,d)=>`<div class="c"><div class="k">${k}</div><div class="v">${v}</div>${d||""}</div>`;
+const headCards=a=>`<div class="cards">${card("문장 수",a.sentences)}${card("단어 수",a.total)}${card("평균 문장 길이",a.mls)}${card("서로 다른 단어",a.distinct)}${card("어휘 다양성(TTR)",a.ttr+"%")}</div>`;
+function bars(list){const t=list.slice(0,10),m=t.length?t[0][1]:1;return t.map(([w,n])=>`<div class="bar"><div class="w">${w}</div><div class="t" style="width:${Math.max(6,n/m*100)}%"></div><div class="n">${n}</div></div>`).join("");}
+let CUR={};
+function reFreq(id,c){const a=CUR[id];document.getElementById(id+"-bar").innerHTML=bars(c?a.content:a.all);}
+function lexSec(a,id){return `<div class="sec"><h3>🟢 어휘 — 얼마나 다양한 말을 썼나</h3><span class="axis ax-lex">어휘 다양성</span>
+  <div class="grid2"><div>
+    <div class="stat"><span>한 번만 쓴 단어</span><b>${a.hapax}개 (${a.hapaxR}%)</b></div>
+    <div class="stat"><span>가장 많이 쓴 5개 단어가 차지하는 비중</span><b>${a.top5}%</b></div>
+    <div class="stat"><span>평균 단어 길이 <span class="approx">근사 신호</span></span><b>${a.avgLen}자</b></div>
+    <div class="stat"><span>긴 단어(7자↑) 비율 <span class="approx">근사 신호</span></span><b>${a.longR}%</b></div>
+  </div><div>
+    <div class="toggle"><label><input type="radio" name="${id}" onclick="reFreq('${id}',true)" checked> 핵심 단어</label>
+    &nbsp;<label><input type="radio" name="${id}" onclick="reFreq('${id}',false)"> 모든 단어</label></div>
+    <div id="${id}-bar">${bars(a.content)}</div>
+  </div></div></div>`;}
+function synSec(a){const tp=a.firstTop.map(([w,n])=>`<span class="chip">${w} · ${n}</span>`).join("");
+  return `<div class="sec"><h3>🟣 문장 — 어떻게 문장을 만들었나</h3><span class="axis ax-syn">통사</span>
+  <div class="grid2"><div>
+    <div class="stat"><span>가장 짧은 문장 / 가장 긴 문장</span><b>${a.minL}단어 / ${a.maxL}단어</b></div>
+    <div class="stat"><span>I로 시작한 문장</span><b>${a.iS}개 (${a.iSR}%)</b></div>
+    <div class="stat"><span>평서문 . / 의문문 ? / 감탄문 !</span><b>${a.types["."]} / ${a.types["?"]} / ${a.types["!"]}</b></div>
+  </div><div><div class="lbl">문장을 시작한 단어</div>${tp||'<span class="hint">문장이 없습니다</span>'}</div></div></div>`;}
+function cohSec(a){const ch=Object.entries(a.cf).sort((x,y)=>y[1]-x[1]).map(([w,n])=>`<span class="chip">${w} · ${n}</span>`).join("");
+  return `<div class="sec"><h3>🟠 연결 — 문장을 얼마나 매끄럽게 이었나</h3><span class="axis ax-coh">응집성</span>
+  <div class="grid2"><div>
+    <div class="stat"><span>연결어를 쓴 총 횟수</span><b>${a.cT}회</b></div>
+    <div class="stat"><span>서로 다른 연결어 종류</span><b>${a.cN}종</b></div>
+  </div><div><div class="lbl">내가 쓴 연결어</div>${ch||'<span class="hint">연결어를 찾지 못했어요</span>'}</div></div></div>`;}
+function runSingle(){const a=analyze(document.getElementById("t1").value);CUR["s"]=a;
+  document.getElementById("out1").innerHTML=headCards(a)+lexSec(a,"s")+synSec(a)+cohSec(a);}
+function showConc(){
+  const w=(document.getElementById("concWord").value||"").trim().toLowerCase();
+  const out=document.getElementById("concOut");
+  if(!w){out.innerHTML='<div class="hint">단어를 입력하세요.</div>';return;}
+  const st=sentObjs(document.getElementById("t1").value);
+  const hits=st.filter(s=>norm(s.raw).includes(w));
+  if(!hits.length){out.innerHTML=`<div class="hint">‘${w}’이(가) 쓰인 문장을 찾지 못했어요.</div>`;return;}
+  const re=new RegExp("\\b("+w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")\\b","gi");
+  out.innerHTML=`<div class="stat"><span>‘${w}’이(가) 쓰인 문장</span><b>${hits.length}개</b></div>`+
+    hits.map(s=>`<div style="padding:6px 0;border-bottom:1px solid #eef0f4;font-size:14px">`+
+      s.raw.replace(re,'<b style="color:var(--syn)">$1</b>')+`</div>`).join("")+
+    `<div class="hint">같은 단어를 늘 비슷한 식으로 쓰는지 살펴보세요. (판단은 내가!)</div>`;
+}
+function delta(b,a,u){const d=+(b-a).toFixed(2);if(d===0)return '<div class="d">±0</div>';return `<div class="d ${d>0?'up':'down'}">${d>0?'▲ +':'▼ '}${d}${u||''}</div>`;}
+function runCompare(){const A=analyze(document.getElementById("tA").value),B=analyze(document.getElementById("tB").value);CUR["cA"]=A;CUR["cB"]=B;
+  const cc=`<div class="cards">
+    ${card("어휘 다양성(TTR)",A.ttr+"→"+B.ttr+"%",delta(B.ttr,A.ttr,"%p"))}
+    ${card("한 번만 쓴 단어 비율",A.hapaxR+"→"+B.hapaxR+"%",delta(B.hapaxR,A.hapaxR,"%p"))}
+    ${card("평균 문장 길이",A.mls+"→"+B.mls,delta(B.mls,A.mls))}
+    ${card("I로 시작한 문장",A.iSR+"→"+B.iSR+"%",delta(B.iSR,A.iSR,"%p"))}
+    ${card("연결어 종류",A.cN+"→"+B.cN+"종",delta(B.cN,A.cN,"종"))}
+  </div>`;
+  document.getElementById("out2").innerHTML=cc+
+   `<div class="grid2"><div>${lexSec(A,"cA").replace("어휘 — 얼마나 다양한 말을 썼나","A(처음) 어휘")}</div><div>${lexSec(B,"cB").replace("어휘 — 얼마나 다양한 말을 썼나","B(최근) 어휘")}</div></div>`+
+   `<div class="grid2"><div>${synSec(A).replace("문장 — 어떻게 문장을 만들었나","A(처음) 문장")}</div><div>${synSec(B).replace("문장 — 어떻게 문장을 만들었나","B(최근) 문장")}</div></div>`+
+   `<div class="grid2"><div>${cohSec(A).replace("연결 — 문장을 얼마나 매끄럽게 이었나","A(처음) 연결")}</div><div>${cohSec(B).replace("연결 — 문장을 얼마나 매끄럽게 이었나","B(최근) 연결")}</div></div>`;}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));document.querySelectorAll(".panel").forEach(x=>x.classList.remove("on"));t.classList.add("on");document.getElementById(t.dataset.tab).classList.add("on");});
+</script>
+</body></html>
