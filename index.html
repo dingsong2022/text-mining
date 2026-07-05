@@ -238,8 +238,7 @@ function renderAiAnalysis(a){
     <div class="note"><b>단락</b><br>${esc(a.organization?.paragraphing||"")}</div>
     <div class="note"><b>문장 흐름</b><br>${esc(a.organization?.sentenceFlow||"")}</div>
     <div class="note"><b>다음 단계</b><br>${esc(a.organization?.nextStep||"")}</div>
-  </div>
-  <div class="sec"><h3>💬 총평</h3><span class="axis ax-lex">피드백</span><div class="note">${esc(a.overallComment||"")}</div></div>`;
+  </div>`;
 }
 async function runAiDeep(){
   const out=document.getElementById("outAi"),loading=document.getElementById("aiLoading");
