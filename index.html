@@ -42,6 +42,11 @@
   .chip{display:inline-block;background:#EEF4FB;border:1px solid var(--line);border-radius:14px;padding:3px 10px;margin:3px;font-size:13px;}
   .hint{font-size:12px;color:#8a97a8;margin-top:8px;}
   .approx{font-size:11px;color:#b07a2a;background:#FBF1E2;border-radius:6px;padding:1px 7px;margin-left:6px;}
+  .mini{font-size:13px;line-height:1.55;color:#4c5b6d;}
+  .note{background:#F6FAFE;border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin:8px 0;font-size:13px;line-height:1.55;}
+  .warn{background:#FFF6E9;border-color:#E6B873;color:#7c5318;}
+  .list{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.6;}
+  .list li{margin:3px 0;}
 </style>
 </head>
 <body>
@@ -51,6 +56,7 @@
   <div class="guard">이 화면은 <b>계산만</b> 합니다. “무엇을 잘했는지, 무엇을 고칠지”는 알려주지 않아요. <b>데이터를 보고 무슨 뜻인지 정하는 건 여러분의 몫</b>입니다.</div>
   <div class="tabs">
     <button class="tab on" data-tab="single">내 글 분석</button>
+    <button class="tab" data-tab="deep">글 특징 보기</button>
     <button class="tab" data-tab="compare">처음 ↔ 최근 비교</button>
   </div>
   <div class="panel on" id="single">
@@ -69,6 +75,16 @@
       <div id="concOut"></div>
     </div>
   </div>
+  <div class="panel" id="deep">
+    <div class="lbl">내 영어 글</div>
+    <textarea id="tDeep" placeholder="여기에 내 영어 글을 붙여넣으세요."></textarea>
+    <div class="two">
+      <div><div class="lbl">선택 — 처음 글</div><textarea id="tDeepA" placeholder="처음 글과 최근 글을 비교하고 싶을 때만 입력"></textarea></div>
+      <div><div class="lbl">선택 — 최근 글</div><textarea id="tDeepB" placeholder="처음 글과 최근 글을 비교하고 싶을 때만 입력"></textarea></div>
+    </div>
+    <button class="btn" onclick="runDeep()">특징 보기</button>
+    <div id="outDeep"></div>
+  </div>
   <div class="panel" id="compare">
     <div class="two">
       <div><div class="lbl">A — 처음에 쓴 글</div><textarea id="tA" placeholder="학기 초에 쓴 글"></textarea></div>
@@ -82,7 +98,9 @@
 const STOP=new Set("a an the and or but to of in on at for with as by from i you we he she it they them me my our your his her their its is am are was were be been being do does did have has had will would shall can could may might must should this that these those then so not no nor also very just only even more most much many some any all both there here what which who whom whose when where why how than too about into onto over under up down out off again further once if because while during before after above below between".split(" "));
 const CONN=["and","but","or","so","yet","because","although","though","while","when","if","unless","since","after","before","until","however","therefore","also","then","first","finally","moreover","besides"];
 const norm=s=>s.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[];
+const esc=s=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
 function sentObjs(t){const m=t.match(/[^.!?]+[.!?]+/g);if(m)return m.map(s=>({raw:s.trim(),end:s.trim().slice(-1)}));return t.trim()?[{raw:t.trim(),end:"."}]:[];}
+function paras(t){return t.split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);}
 function analyze(text){
   const w=norm(text),st=sentObjs(text),total=w.length,distinct=new Set(w).size;
   const f={};for(const x of w)f[x]=(f[x]||0)+1;
@@ -132,6 +150,76 @@ function cohSec(a){const ch=Object.entries(a.cf).sort((x,y)=>y[1]-x[1]).map(([w,
     <div class="stat"><span>연결어를 쓴 총 횟수</span><b>${a.cT}회</b></div>
     <div class="stat"><span>서로 다른 연결어 종류</span><b>${a.cN}종</b></div>
   </div><div><div class="lbl">내가 쓴 연결어</div>${ch||'<span class="hint">연결어를 찾지 못했어요</span>'}</div></div></div>`;}
+function sentenceExamples(text,re,limit=3){
+  return sentObjs(text).filter(s=>re.test(s.raw) && (re.lastIndex=0,true)).slice(0,limit).map(s=>esc(s.raw));
+}
+function grammarSignals(text){
+  const checks=[
+    {name:"소문자 i",why:"영어에서 나를 뜻하는 I는 대문자로 씁니다.",re:/\bi\b/g},
+    {name:"a/an 선택",why:"a와 an 뒤에 오는 소리와 맞는지 확인해 보세요.",re:/\b(a\s+[aeiou]|an\s+[^aeiou\s])/gi},
+    {name:"3인칭 단수 동사",why:"he/she/it 뒤 동사에 -s가 필요한 자리인지 확인해 보세요.",re:/\b(he|she|it)\s+(go|like|play|want|need|make|study|watch|eat|live|love|do|have)\b/gi},
+    {name:"do/did 뒤 동사",why:"do, does, did 뒤에는 보통 동사의 기본형이 옵니다.",re:/\b(did|didn't|does|doesn't|do|don't)\s+[a-z]+(ed|s)\b/gi},
+    {name:"be동사+일반동사",why:"I am agree처럼 be동사와 일반동사가 함께 쓰였는지 확인해 보세요.",re:/\b(am|is|are|was|were)\s+(agree|like|want|go|play|study|eat|make|think|have)\b/gi},
+    {name:"반복 단어",why:"같은 단어가 실수로 두 번 이어졌는지 확인해 보세요.",re:/\b([a-z]+)\s+\1\b/gi}
+  ];
+  const found=checks.map(c=>({name:c.name,why:c.why,examples:sentenceExamples(text,c.re)})).filter(c=>c.examples.length);
+  return found;
+}
+function levelEstimate(a){
+  if(a.total<30)return {label:"자료 부족",score:0,why:"단어 수가 적어서 수준을 가늠하기 어렵습니다."};
+  let score=0,reasons=[];
+  if(a.mls>=8){score++;reasons.push("문장 길이가 어느 정도 있습니다");}
+  if(a.mls>=13){score++;reasons.push("긴 문장을 시도합니다");}
+  if(a.ttr>=45){score++;reasons.push("서로 다른 단어를 비교적 다양하게 씁니다");}
+  if(a.longR>=10){score++;reasons.push("긴 단어 비율이 있습니다");}
+  if(a.cN>=3){score++;reasons.push("연결어 종류가 여럿입니다");}
+  if(a.sentences>=6){score++;reasons.push("여러 문장으로 내용을 전개합니다");}
+  const label=score<=1?"시작 단계":score<=3?"기초-확장 단계":score<=5?"확장 단계":"발전 단계";
+  return {label,score,why:reasons.join(", ")||"짧고 단순한 표현이 중심입니다"};
+}
+function paragraphProfile(text){
+  const p=paras(text),sentPer=p.map(x=>sentObjs(x).length),avg=p.length?+(sentPer.reduce((s,n)=>s+n,0)/p.length).toFixed(1):0;
+  const low=text.toLowerCase();
+  const order=(low.match(/\b(first|second|third|finally|in conclusion|for example|because|however|therefore|also)\b/g)||[]);
+  const starts=p.map(x=>norm(x)[0]).filter(Boolean);
+  return {count:p.length,avg,order:[...new Set(order)].slice(0,8),starts};
+}
+function featureNotes(text,a){
+  const notes=[];
+  const content=a.content.slice(0,5).map(([w,n])=>`${w}(${n})`).join(", ");
+  if(content)notes.push(`중심 단어는 ${content} 쪽으로 모입니다.`);
+  if(a.iSR>=40)notes.push(`I로 시작한 문장이 ${a.iSR}%라서, 글이 내 경험/의견 중심으로 보입니다.`);
+  if(a.maxL-a.minL>=10)notes.push(`짧은 문장과 긴 문장의 차이가 커서 문장 길이에 변화가 있습니다.`);
+  if(a.cT===0)notes.push("연결어가 거의 없어 문장 사이 관계를 독자가 직접 추측해야 할 수 있습니다.");
+  if(a.types["?"]>0)notes.push(`질문형 문장을 ${a.types["?"]}개 사용했습니다.`);
+  if(a.types["!"]>0)notes.push(`감탄문을 ${a.types["!"]}개 사용해 감정 표현이 드러납니다.`);
+  return notes.length?notes:["아직 특징을 잡기에는 글이 짧습니다. 문장을 조금 더 넣어 보세요."];
+}
+function compareNarrative(A,B){
+  if(!A.total||!B.total)return '<div class="note">처음 글과 최근 글을 모두 넣으면 변화 내용을 함께 보여줍니다.</div>';
+  const lines=[];
+  const add=(label,b,a,unit,upMsg,downMsg)=>{const d=+(b-a).toFixed(2);if(d>0)lines.push(`${label}: ${upMsg} (${a}${unit} → ${b}${unit})`);else if(d<0)lines.push(`${label}: ${downMsg} (${a}${unit} → ${b}${unit})`);else lines.push(`${label}: 거의 비슷합니다 (${a}${unit})`);};
+  add("글의 양",B.total,A.total,"단어","더 길어졌습니다","더 짧아졌습니다");
+  add("어휘 다양성",B.ttr,A.ttr,"%","서로 다른 단어 사용이 늘었습니다","반복 단어 비중이 커졌을 수 있습니다");
+  add("평균 문장 길이",B.mls,A.mls,"","문장을 더 길게 이어 쓰는 경향이 있습니다","문장을 더 짧고 단순하게 쓰는 경향이 있습니다");
+  add("연결어 종류",B.cN,A.cN,"종","문장 사이 관계를 더 다양하게 표시합니다","연결 방식이 더 제한적으로 보입니다");
+  return `<ul class="list">${lines.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`;
+}
+function runDeep(){
+  const text=document.getElementById("tDeep").value;
+  const a=analyze(text),level=levelEstimate(a),pg=paragraphProfile(text),signals=grammarSignals(text),notes=featureNotes(text,a);
+  const startChips=a.firstTop.map(([w,n])=>`<span class="chip">${esc(w)} · ${n}</span>`).join("")||'<span class="hint">문장이 없습니다</span>';
+  const connChips=Object.entries(a.cf).sort((x,y)=>y[1]-x[1]).map(([w,n])=>`<span class="chip">${esc(w)} · ${n}</span>`).join("")||'<span class="hint">연결어를 찾지 못했어요</span>';
+  const grammarHtml=signals.length?signals.map(s=>`<div class="note warn"><b>${esc(s.name)}</b><br>${esc(s.why)}<br>${s.examples.map(e=>`<span class="chip">${e}</span>`).join("")}</div>`).join(""):'<div class="note">자주 확인하는 어법 신호는 크게 보이지 않습니다. 그래도 문맥에 맞는지는 직접 읽으며 확인해 보세요.</div>';
+  const A=analyze(document.getElementById("tDeepA").value),B=analyze(document.getElementById("tDeepB").value);
+  document.getElementById("outDeep").innerHTML=headCards(a)+
+    `<div class="sec"><h3>🟣 문장 시작과 연결어</h3><span class="axis ax-syn">표현 방식</span><div class="grid2"><div><div class="lbl">문장을 시작한 단어</div>${startChips}</div><div><div class="lbl">자주 쓰는 연결어</div>${connChips}</div></div></div>`+
+    `<div class="sec"><h3>🟤 자주 확인할 어법 신호</h3><span class="axis ax-coh">점검 신호</span><div class="note">아래 내용은 자동으로 찾은 <b>가능성</b>입니다. 틀렸다고 단정하지 말고 문장 안에서 다시 확인해 보세요.</div>${grammarHtml}</div>`+
+    `<div class="sec"><h3>🟠 단락 구성 방식</h3><span class="axis ax-coh">구성</span><div class="grid2"><div><div class="stat"><span>단락 수</span><b>${pg.count}개</b></div><div class="stat"><span>단락당 평균 문장 수</span><b>${pg.avg}문장</b></div></div><div><div class="lbl">순서·예시·결론 신호</div>${pg.order.length?pg.order.map(x=>`<span class="chip">${esc(x)}</span>`).join(""):'<span class="hint">뚜렷한 구성 신호가 적습니다</span>'}</div></div></div>`+
+    `<div class="sec"><h3>🔵 내 글의 대략적 수준</h3><span class="axis ax-lex">수준 신호</span><div class="note"><b>${level.label}</b><br>${esc(level.why)}</div><div class="hint">이 수준은 시험 점수가 아니라 단어 수, 문장 길이, 어휘 다양성, 연결어 사용을 바탕으로 한 대략적인 신호입니다.</div></div>`+
+    `<div class="sec"><h3>🟢 처음 글과 최근 글의 변화</h3><span class="axis ax-lex">성장 비교</span>${compareNarrative(A,B)}</div>`+
+    `<div class="sec"><h3>🔎 그 밖의 내 글 특징</h3><span class="axis ax-syn">관찰</span><ul class="list">${notes.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`;
+}
 function runSingle(){const a=analyze(document.getElementById("t1").value);CUR["s"]=a;
   document.getElementById("out1").innerHTML=headCards(a)+lexSec(a,"s")+synSec(a)+cohSec(a);}
 function showConc(){
