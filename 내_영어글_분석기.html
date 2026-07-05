@@ -82,13 +82,8 @@
   <div class="panel" id="deep">
     <div class="lbl">내 영어 글</div>
     <textarea id="tDeep" placeholder="여기에 내 영어 글을 붙여넣으세요."></textarea>
-    <div class="two">
-      <div><div class="lbl">선택 — 처음 글</div><textarea id="tDeepA" placeholder="처음 글과 최근 글을 비교하고 싶을 때만 입력"></textarea></div>
-      <div><div class="lbl">선택 — 최근 글</div><textarea id="tDeepB" placeholder="처음 글과 최근 글을 비교하고 싶을 때만 입력"></textarea></div>
-    </div>
-    <button class="btn" onclick="runDeep()">특징 보기</button>
-    <button class="btn alt" onclick="runAiDeep()">AI로 자세히 분석하기</button><span id="aiLoading" class="loading"></span>
-    <div id="outDeep"></div>
+    <button class="btn alt" onclick="runAiDeep()">AI로 분석하기</button><span id="aiLoading" class="loading"></span>
+    <div class="hint">CEFR 수준·어법·내용·단락 구성·총평을 AI가 분석합니다. (처음↔최근 비교는 위의 ‘처음 ↔ 최근 비교’ 탭에서)</div>
     <div id="outAi"></div>
   </div>
   <div class="panel" id="compare">
@@ -244,11 +239,6 @@ function renderAiAnalysis(a){
     <div class="note"><b>문장 흐름</b><br>${esc(a.organization?.sentenceFlow||"")}</div>
     <div class="note"><b>다음 단계</b><br>${esc(a.organization?.nextStep||"")}</div>
   </div>
-  <div class="sec"><h3>🔵 처음 글과 최근 글 비교</h3><span class="axis ax-syn">성장</span>
-    <div class="note">${esc(a.comparison?.summary||"비교 글이 부족합니다.")}</div>
-    <div class="lbl">달라진 점</div>${listItems(a.comparison?.changes)}
-    <div class="lbl">아직 더 볼 점</div>${listItems(a.comparison?.stillDeveloping)}
-  </div>
   <div class="sec"><h3>💬 총평</h3><span class="axis ax-lex">피드백</span><div class="note">${esc(a.overallComment||"")}</div></div>`;
 }
 async function runAiDeep(){
@@ -266,9 +256,7 @@ async function runAiDeep(){
   out.innerHTML="";
   try{
     const res=await fetch(AI_ENDPOINT,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
-      currentText,
-      firstText:document.getElementById("tDeepA").value,
-      recentText:document.getElementById("tDeepB").value
+      currentText
     })});
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||"AI 분석에 실패했습니다.");
